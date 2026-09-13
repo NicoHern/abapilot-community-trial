@@ -17,6 +17,10 @@ The trial exposes four operations through one SICF handler:
 It does not contain write, activation, execution, transport, business-data,
 administration, licence, translation, monitoring, or production support tools.
 
+The downloadable repository also includes a capped MCP connector. It requires
+an active ABAPilot Portal account and an individual Portal key. Downloading or
+installing the ABAP objects alone does not enable MCP access.
+
 ## Install with abapGit
 
 1. Install or run `ZABAPGIT_STANDALONE` in a development or sandbox system.
@@ -26,6 +30,35 @@ administration, licence, translation, monitoring, or production support tools.
    `ZCL_ABP_TRIAL_HTTP`.
 5. Activate the node and require HTTPS and SAP authentication.
 6. Test `GET /sap/bc/zabapilot_trial/ping` before configuring an MCP client.
+
+## Portal-gated MCP connector
+
+Ask Crimson Consulting to add each evaluator as an ABAPilot Portal user and
+issue an individual Community Trial key. Each evaluating company is assigned a
+finite monthly call allowance in the Portal. The connector validates that key
+and checks the server-side allowance before every
+SAP call. It records tool name, status and duration after the call; it never
+sends SAP response data to the Portal.
+
+Configure an MCP client to run `npx @abapilot/community-trial` with:
+
+```json
+{
+  "env": {
+    "ABAPILOT_PORTAL_KEY": "portal-issued-key",
+    "ABAPILOT_TRIAL_URL": "https://sap.example/sap/bc/zabapilot_trial",
+    "ABAPILOT_TRIAL_SAP_USER": "ABAPILOT_TRIAL",
+    "ABAPILOT_TRIAL_SAP_PASSWORD": "use-your-secret-store",
+    "ABAPILOT_TRIAL_SAP_CLIENT": "100"
+  }
+}
+```
+
+`ABAPILOT_PORTAL_URL` is optional and defaults to
+`https://portal.crimsonconsultingsl.com`. The connector refuses calls when the
+key is missing, inactive, expired, assigned no finite trial allowance, or has
+reached its allowance. Portal authentication does not replace SAP
+authentication: SAP still enforces the dedicated user's own authorizations.
 
 ## Requests
 
@@ -59,6 +92,7 @@ administration, licence, translation, monitoring, or production support tools.
   maintained authorization group use the standard `&NC&` group.
 - Table reads return at most 20 rows and do not accept a free-form WHERE clause.
 - No write or business-data endpoint exists in this package.
+- Portal telemetry contains tool metadata only, never ABAP source or table rows.
 - SICF access, SAP authorizations, network exposure, and AI-provider data
   handling remain the evaluator's responsibility.
 
