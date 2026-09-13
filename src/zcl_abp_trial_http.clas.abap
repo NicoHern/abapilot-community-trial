@@ -41,6 +41,17 @@ CLASS zcl_abp_trial_http DEFINITION
       IMPORTING
         io_request  TYPE REF TO if_http_request
         io_response TYPE REF TO if_http_response.
+
+    METHODS handle_read_table_data
+      IMPORTING
+        io_request  TYPE REF TO if_http_request
+        io_response TYPE REF TO if_http_response.
+
+    METHODS check_table_auth
+      IMPORTING
+        iv_table_name TYPE tabname
+      RETURNING
+        VALUE(rv_authorized) TYPE abap_bool.
 ENDCLASS.
 
 CLASS zcl_abp_trial_http IMPLEMENTATION.
@@ -61,12 +72,157 @@ CLASS zcl_abp_trial_http IMPLEMENTATION.
         handle_read_table_structure(
           io_request  = server->request
           io_response = server->response ).
+      WHEN '/read_table_data'.
+        handle_read_table_data(
+          io_request  = server->request
+          io_response = server->response ).
       WHEN OTHERS.
         send_json(
           io_response = server->response
           iv_status   = 404
           iv_body     = '{"success":false,"error":"Unknown trial endpoint"}' ).
     ENDCASE.
+  ENDMETHOD.
+
+  METHOD handle_read_table_data.
+    DATA lv_json TYPE string.
+    DATA lv_name TYPE tabname.
+    DATA lv_max_rows TYPE i.
+    DATA lv_max_rows_text TYPE string.
+    DATA lr_data TYPE REF TO data.
+    DATA lt_fields TYPE STANDARD TABLE OF dd03p.
+    DATA ls_field TYPE dd03p.
+    DATA lv_body TYPE string.
+    DATA lv_rows TYPE i.
+    DATA lv_rows_text TYPE string.
+    DATA lv_first_row TYPE abap_bool.
+    DATA lv_first_field TYPE abap_bool.
+    DATA lv_fieldname TYPE fieldname.
+    DATA lv_field_value TYPE string.
+    DATA lx_error TYPE REF TO cx_root.
+
+    FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
+    FIELD-SYMBOLS <ls_data> TYPE any.
+    FIELD-SYMBOLS <lv_value> TYPE any.
+
+    lv_json = io_request->get_cdata( ).
+    lv_name = get_json_value( iv_json = lv_json iv_name = 'table_name' ).
+    TRANSLATE lv_name TO UPPER CASE.
+
+    IF lv_name IS INITIAL.
+      send_json( io_response = io_response iv_status = 400
+        iv_body = '{"success":false,"error":"Missing table_name"}' ).
+      RETURN.
+    ENDIF.
+
+    IF lv_name NP 'Z*' AND lv_name NP 'Y*'.
+      send_json( io_response = io_response iv_status = 403
+        iv_body = '{"success":false,"error":"Trial access is limited to Z and Y tables"}' ).
+      RETURN.
+    ENDIF.
+
+    IF check_table_auth( lv_name ) = abap_false.
+      send_json( io_response = io_response iv_status = 403
+        iv_body = '{"success":false,"error":"S_TABU_DIS display authorization required"}' ).
+      RETURN.
+    ENDIF.
+
+    lv_max_rows = get_json_value( iv_json = lv_json iv_name = 'max_rows' ).
+    IF lv_max_rows <= 0.
+      lv_max_rows = 10.
+    ENDIF.
+    IF lv_max_rows > 20.
+      lv_max_rows = 20.
+    ENDIF.
+
+    TRY.
+        CREATE DATA lr_data TYPE TABLE OF (lv_name).
+        ASSIGN lr_data->* TO <lt_data>.
+
+        CALL FUNCTION 'DDIF_TABL_GET'
+          EXPORTING
+            name          = lv_name
+            langu         = sy-langu
+          TABLES
+            dd03p_tab     = lt_fields
+          EXCEPTIONS
+            illegal_input = 1
+            OTHERS        = 2.
+        IF sy-subrc <> 0.
+          send_json( io_response = io_response iv_status = 404
+            iv_body = '{"success":false,"error":"Table not found"}' ).
+          RETURN.
+        ENDIF.
+
+        SELECT * FROM (lv_name)
+          INTO TABLE <lt_data>
+          UP TO lv_max_rows ROWS.
+
+        DESCRIBE TABLE <lt_data> LINES lv_rows.
+        lv_rows_text = lv_rows.
+        lv_max_rows_text = lv_max_rows.
+        CONDENSE lv_rows_text NO-GAPS.
+        CONDENSE lv_max_rows_text NO-GAPS.
+        CONCATENATE '{"success":true,"row_count":' lv_rows_text ',"max_rows":'
+          lv_max_rows_text ',"data":[' INTO lv_body.
+
+        lv_first_row = abap_true.
+        LOOP AT <lt_data> ASSIGNING <ls_data>.
+          IF lv_first_row = abap_false.
+            CONCATENATE lv_body ',' INTO lv_body.
+          ENDIF.
+          lv_first_row = abap_false.
+          CONCATENATE lv_body '{' INTO lv_body.
+          lv_first_field = abap_true.
+
+          LOOP AT lt_fields INTO ls_field.
+            IF ls_field-fieldname CP '.INCLUDE*'.
+              CONTINUE.
+            ENDIF.
+            lv_fieldname = ls_field-fieldname.
+            ASSIGN COMPONENT lv_fieldname OF STRUCTURE <ls_data> TO <lv_value>.
+            IF sy-subrc <> 0.
+              CONTINUE.
+            ENDIF.
+            IF lv_first_field = abap_false.
+              CONCATENATE lv_body ',' INTO lv_body.
+            ENDIF.
+            lv_first_field = abap_false.
+            CLEAR lv_field_value.
+            MOVE <lv_value> TO lv_field_value.
+            CONDENSE lv_field_value.
+            lv_field_value = escape_json( lv_field_value ).
+            CONCATENATE lv_body '"' lv_fieldname '":"' lv_field_value '"' INTO lv_body.
+          ENDLOOP.
+          CONCATENATE lv_body '}' INTO lv_body.
+        ENDLOOP.
+        CONCATENATE lv_body ']}' INTO lv_body.
+        send_json( io_response = io_response iv_status = 200 iv_body = lv_body ).
+      CATCH cx_root INTO lx_error.
+        lv_field_value = lx_error->get_text( ).
+        lv_field_value = escape_json( lv_field_value ).
+        CONCATENATE '{"success":false,"error":"' lv_field_value '"}' INTO lv_body.
+        send_json( io_response = io_response iv_status = 400 iv_body = lv_body ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD check_table_auth.
+    DATA lv_group TYPE tddat-cclass.
+
+    SELECT SINGLE cclass FROM tddat INTO lv_group
+      WHERE tabname = iv_table_name.
+    IF sy-subrc <> 0 OR lv_group IS INITIAL.
+      lv_group = '&NC&'.
+    ENDIF.
+
+    AUTHORITY-CHECK OBJECT 'S_TABU_DIS'
+      ID 'DICBERCLS' FIELD lv_group
+      ID 'ACTVT' FIELD '03'.
+    IF sy-subrc = 0.
+      rv_authorized = abap_true.
+    ELSE.
+      rv_authorized = abap_false.
+    ENDIF.
   ENDMETHOD.
 
   METHOD handle_ping.

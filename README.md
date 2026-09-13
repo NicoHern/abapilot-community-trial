@@ -5,13 +5,14 @@ SAP ECC or on-premise SAP S/4HANA before evaluating the full ABAPilot product.
 
 ## Scope
 
-The trial exposes three operations through one SICF handler:
+The trial exposes four operations through one SICF handler:
 
 | Path | Purpose | Boundary |
 | --- | --- | --- |
 | `/ping` | Verify the SAP connection and user | No repository or business data |
 | `/read_code` | Read active source for a custom report | `Z*` and `Y*` reports only; `S_DEVELOP` display check |
 | `/read_table_structure` | Read DDIC fields for a custom table or structure | `Z*` and `Y*` objects only; metadata only |
+| `/read_table_data` | Read a small sample from a custom table | `Z*` and `Y*` tables only; `S_TABU_DIS`; maximum 20 rows; no free-form filter |
 
 It does not contain write, activation, execution, transport, business-data,
 administration, licence, translation, monitoring, or production support tools.
@@ -42,12 +43,21 @@ administration, licence, translation, monitoring, or production support tools.
 {"table_name":"ZMY_TABLE"}
 ```
 
+`POST /read_table_data`
+
+```json
+{"table_name":"ZMY_TABLE","max_rows":"10"}
+```
+
 ## Security boundaries
 
 - Install only in a development or sandbox system.
 - Use HTTPS and a dedicated SAP user.
 - The trial rejects non-`Z*`/`Y*` repository and DDIC names.
 - Code reading checks `S_DEVELOP` with activity `03`.
+- Table-data reading checks `S_TABU_DIS` with activity `03`; tables without a
+  maintained authorization group use the standard `&NC&` group.
+- Table reads return at most 20 rows and do not accept a free-form WHERE clause.
 - No write or business-data endpoint exists in this package.
 - SICF access, SAP authorizations, network exposure, and AI-provider data
   handling remain the evaluator's responsibility.
