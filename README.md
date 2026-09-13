@@ -37,8 +37,14 @@ Ask Crimson Consulting to add each evaluator as an ABAPilot Portal user and
 issue an individual Community Trial key. Each evaluating company is assigned a
 finite monthly call allowance in the Portal. The connector validates that key
 and checks the server-side allowance before every
-SAP call. It records tool name, status and duration after the call; it never
-sends SAP response data to the Portal.
+SAP call. It never sends SAP response data to the Portal.
+
+The SAP handler independently requires the same Portal key, validates it with
+the hosted Portal, and records one usage event before dispatching a request.
+This prevents direct SICF calls from bypassing the official connector. Portal
+access from SAP must be allowed through the customer's outbound HTTPS policy,
+and the Portal certificate chain must be trusted in `STRUST`. The trial fails
+closed if validation or usage recording cannot be completed.
 
 Configure an MCP client to run `npx @abapilot/community-trial` with:
 
@@ -92,7 +98,8 @@ authentication: SAP still enforces the dedicated user's own authorizations.
   maintained authorization group use the standard `&NC&` group.
 - Table reads return at most 20 rows and do not accept a free-form WHERE clause.
 - No write or business-data endpoint exists in this package.
-- Portal telemetry contains tool metadata only, never ABAP source or table rows.
+- Portal telemetry contains an accepted trial-request event only, never ABAP
+  source, request parameters, or table rows.
 - SICF access, SAP authorizations, network exposure, and AI-provider data
   handling remain the evaluator's responsibility.
 

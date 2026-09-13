@@ -96,42 +96,21 @@ function sapUrl(cfg, endpoint) {
 }
 
 export async function callSap(cfg, tool, args = {}) {
-  const started = Date.now();
-  let authorized = false;
-  let status = "error";
-  let errorMessage = "";
-  try {
-    await authorize(cfg);
-    authorized = true;
-    const payload = { ...args };
-    if (typeof payload.object_name === "string") payload.object_name = payload.object_name.toUpperCase();
-    if (typeof payload.table_name === "string") payload.table_name = payload.table_name.toUpperCase();
-    const response = await fetch(sapUrl(cfg, tool.endpoint), {
-      method: tool.endpoint === "/ping" ? "GET" : "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${cfg.sapUser}:${cfg.sapPassword}`).toString("base64")}`,
-        "Content-Type": "application/json",
-        "X-ABAPilot-Connector": `community-trial/${VERSION}`,
-      },
-      body: tool.endpoint === "/ping" ? undefined : JSON.stringify(payload),
-    });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`SAP trial endpoint returned HTTP ${response.status}: ${text.slice(0, 500)}`);
-    status = "success";
-    try { return JSON.parse(text); } catch { return text; }
-  } catch (error) {
-    errorMessage = error instanceof Error ? error.message : String(error);
-    throw error;
-  } finally {
-    if (authorized) {
-      await portalRequest(cfg, "/api/v1/mcp/telemetry/events", {
-        method: "POST",
-        body: JSON.stringify({ events: [{
-          event_type: "tool_call", feature: "community_trial", sap_endpoint: tool.endpoint,
-          status, duration_ms: Date.now() - started, tool_calls: [tool.name], tool_calls_count: 1,
-          channel: "mcp", error_message: errorMessage, timestamp: new Date().toISOString(),
-        }] }),
-      }).catch(() => {});
-    }
-  }
+  await authorize(cfg);
+  const payload = { ...args };
+  if (typeof payload.object_name === "string") payload.object_name = payload.object_name.toUpperCase();
+  if (typeof payload.table_name === "string") payload.table_name = payload.table_name.toUpperCase();
+  const response = await fetch(sapUrl(cfg, tool.endpoint), {
+    method: tool.endpoint === "/ping" ? "GET" : "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${cfg.sapUser}:${cfg.sapPassword}`).toString("base64")}`,
+      "X-ABAPilot-License-Key": cfg.portalKey,
+      "Content-Type": "application/json",
+      "X-ABAPilot-Connector": `community-trial/${VERSION}`,
+    },
+    body: tool.endpoint === "/ping" ? undefined : JSON.stringify(payload),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`SAP trial endpoint returned HTTP ${response.status}: ${text.slice(0, 500)}`);
+  try { return JSON.parse(text); } catch { return text; }
 }
