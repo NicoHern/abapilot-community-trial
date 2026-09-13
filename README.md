@@ -45,7 +45,7 @@ Configure an MCP client to run `npx @abapilot/community-trial` with:
 ```json
 {
   "env": {
-    "ABAPILOT_PORTAL_KEY": "portal-issued-key",
+    "ABAPILOT_LICENSE_KEY": "portal-issued-key",
     "ABAPILOT_TRIAL_URL": "https://sap.example/sap/bc/zabapilot_trial",
     "ABAPILOT_TRIAL_SAP_USER": "ABAPILOT_TRIAL",
     "ABAPILOT_TRIAL_SAP_PASSWORD": "use-your-secret-store",
@@ -54,8 +54,8 @@ Configure an MCP client to run `npx @abapilot/community-trial` with:
 }
 ```
 
-`ABAPILOT_PORTAL_URL` is optional and defaults to
-`https://portal.crimsonconsultingsl.com`. The connector refuses calls when the
+`ABAPILOT_PORTAL_URL` is optional and defaults to the hosted ABAPilot Portal.
+The connector refuses calls when the
 key is missing, inactive, expired, assigned no finite trial allowance, or has
 reached its allowance. Portal authentication does not replace SAP
 authentication: SAP still enforces the dedicated user's own authorizations.

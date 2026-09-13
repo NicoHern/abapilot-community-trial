@@ -51,14 +51,14 @@ export function configuration(env = process.env) {
     sapUser: env.ABAPILOT_TRIAL_SAP_USER ?? "",
     sapPassword: env.ABAPILOT_TRIAL_SAP_PASSWORD ?? "",
     sapClient: env.ABAPILOT_TRIAL_SAP_CLIENT ?? "",
-    portalUrl: (env.ABAPILOT_PORTAL_URL ?? "https://portal.crimsonconsultingsl.com").replace(/\/+$/, ""),
-    portalKey: env.ABAPILOT_PORTAL_KEY ?? "",
+    portalUrl: (env.ABAPILOT_PORTAL_URL ?? "https://abapilot-portal.kindwater-835c4d5f.westeurope.azurecontainerapps.io").replace(/\/+$/, ""),
+    portalKey: env.ABAPILOT_LICENSE_KEY ?? env.ABAPILOT_PORTAL_KEY ?? "",
   };
 }
 
 export function assertConfigured(cfg) {
   const missing = [];
-  if (!cfg.portalKey) missing.push("ABAPILOT_PORTAL_KEY");
+  if (!cfg.portalKey) missing.push("ABAPILOT_LICENSE_KEY");
   if (!cfg.sapUrl) missing.push("ABAPILOT_TRIAL_URL");
   if (!cfg.sapUser || !cfg.sapPassword) missing.push("ABAPILOT_TRIAL_SAP_USER/ABAPILOT_TRIAL_SAP_PASSWORD");
   if (missing.length) throw new Error(`ABAPilot Community Trial is not configured: ${missing.join(", ")}`);

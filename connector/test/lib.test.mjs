@@ -11,7 +11,7 @@ test("trial exposes only the four bounded read-only tools", () => {
 
 test("portal key and SAP credentials are mandatory", () => {
   const cfg = configuration({ ABAPILOT_PORTAL_URL: "https://portal.example" });
-  assert.throws(() => assertConfigured(cfg), /ABAPILOT_PORTAL_KEY/);
+  assert.throws(() => assertConfigured(cfg), /ABAPILOT_LICENSE_KEY/);
   assert.throws(() => assertConfigured(cfg), /ABAPILOT_TRIAL_URL/);
 });
 
@@ -29,7 +29,7 @@ test("authorization requires a finite Portal allowance", async (t) => {
     quota: { queries_used: 0, queries_limit: 0 },
   }), { status: 200, headers: { "Content-Type": "application/json" } });
   const cfg = configuration({
-    ABAPILOT_PORTAL_KEY: "abp_test_key",
+    ABAPILOT_LICENSE_KEY: "abp_test_key",
     ABAPILOT_TRIAL_URL: "https://sap.example/trial",
     ABAPILOT_TRIAL_SAP_USER: "TRIAL",
     ABAPILOT_TRIAL_SAP_PASSWORD: "secret",
@@ -46,7 +46,7 @@ test("authorization blocks an exhausted Portal allowance", async (t) => {
     quota: { queries_used: 50, queries_limit: 50 },
   }), { status: 200, headers: { "Content-Type": "application/json" } });
   const cfg = configuration({
-    ABAPILOT_PORTAL_KEY: "abp_test_key",
+    ABAPILOT_LICENSE_KEY: "abp_test_key",
     ABAPILOT_TRIAL_URL: "https://sap.example/trial",
     ABAPILOT_TRIAL_SAP_USER: "TRIAL",
     ABAPILOT_TRIAL_SAP_PASSWORD: "secret",
