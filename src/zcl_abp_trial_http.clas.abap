@@ -353,7 +353,7 @@ CLASS zcl_abp_trial_http IMPLEMENTATION.
       EXCEPTIONS
         illegal_input = 1
         OTHERS        = 2.
-    IF sy-subrc <> 0.
+    IF sy-subrc <> 0 OR lt_fields IS INITIAL.
       send_json( io_response = io_response iv_status = 404
         iv_body = '{"success":false,"error":"DDIC object not found"}' ).
       RETURN.
@@ -381,6 +381,14 @@ CLASS zcl_abp_trial_http IMPLEMENTATION.
       lv_description = escape_json( lv_description ).
       CONDENSE lv_length.
       CONDENSE lv_decimals.
+      SHIFT lv_length LEFT DELETING LEADING '0'.
+      SHIFT lv_decimals LEFT DELETING LEADING '0'.
+      IF lv_length IS INITIAL.
+        lv_length = '0'.
+      ENDIF.
+      IF lv_decimals IS INITIAL.
+        lv_decimals = '0'.
+      ENDIF.
       CONCATENATE lv_body '{"name":"' lv_fieldname
         '","data_element":"' lv_rollname
         '","datatype":"' lv_datatype

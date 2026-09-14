@@ -32,6 +32,7 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
   METHOD validate.
     DATA lv_key TYPE string.
     DATA lv_status TYPE i.
+    DATA lv_status_text TYPE c LENGTH 12.
     DATA lv_response TYPE string.
     DATA lv_usage_body TYPE string.
     DATA lv_used TYPE i.
@@ -53,7 +54,9 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
         ev_response    = lv_response ).
 
     IF lv_status <> 200 OR lv_response NS '"valid":true'.
-      rv_error = 'Trial inactive, expired, or Portal unavailable'.
+      WRITE lv_status TO lv_status_text.
+      CONCATENATE 'Portal validation failed, HTTP' lv_status_text
+        INTO rv_error SEPARATED BY space.
       RETURN.
     ENDIF.
 
@@ -121,11 +124,12 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
 
   METHOD portal_post.
     CONSTANTS lc_portal TYPE string VALUE
-      'https://abapilot-portal.kindwater-835c4d5f.westeurope.azurecontainerapps.io'.
+      'http://172.211.221.214'.
     DATA lo_client TYPE REF TO if_http_client.
     DATA lv_url TYPE string.
     DATA lv_reason TYPE string.
     DATA lv_auth TYPE string.
+    DATA lv_error_code TYPE sysubrc.
 
     CLEAR: ev_status, ev_response.
     CONCATENATE lc_portal iv_path INTO lv_url.
@@ -140,6 +144,8 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
         internal_error     = 3
         OTHERS             = 4.
     IF sy-subrc <> 0 OR lo_client IS INITIAL.
+      ev_status = sy-subrc.
+      ev_response = 'CREATE_BY_URL failed'.
       RETURN.
     ENDIF.
 
@@ -152,9 +158,29 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
     lo_client->request->set_cdata( iv_body ).
     lo_client->send( EXCEPTIONS http_communication_failure = 1
       http_invalid_state = 2 http_processing_failed = 3 OTHERS = 4 ).
+    IF sy-subrc <> 0.
+      ev_status = sy-subrc.
+      cl_http_client=>get_last_error(
+        IMPORTING code = lv_error_code message = ev_response ).
+      IF lv_error_code <> 0.
+        ev_status = lv_error_code.
+      ENDIF.
+      lo_client->close( ).
+      RETURN.
+    ENDIF.
     IF sy-subrc = 0.
       lo_client->receive( EXCEPTIONS http_communication_failure = 1
         http_invalid_state = 2 http_processing_failed = 3 OTHERS = 4 ).
+    ENDIF.
+    IF sy-subrc <> 0.
+      ev_status = sy-subrc.
+      cl_http_client=>get_last_error(
+        IMPORTING code = lv_error_code message = ev_response ).
+      IF lv_error_code <> 0.
+        ev_status = lv_error_code.
+      ENDIF.
+      lo_client->close( ).
+      RETURN.
     ENDIF.
     IF sy-subrc = 0.
       lo_client->response->get_status(
