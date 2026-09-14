@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "Portal-gated MCP trial for read-only ABAP evaluation on ECC and on-premise S/4HANA",
   "type": "module",
-  "bin": { "abapilot-trial": "dist/index.js" },
+  "bin": {
+    "abapilot-trial": "dist/index.js",
+    "abapilot-trial-configure": "dist/configure.mjs"
+  },
   "main": "dist/index.js",
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {

@@ -123,8 +123,10 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD portal_post.
-    CONSTANTS lc_portal TYPE string VALUE
-      'http://172.211.221.214'.
+    CONSTANTS lc_default_portal TYPE string VALUE
+      'https://abapilot-portal.kindwater-835c4d5f.westeurope.azurecontainerapps.io'.
+    DATA lv_portal TYPE string.
+    DATA lv_configured_portal TYPE tvarvc-low.
     DATA lo_client TYPE REF TO if_http_client.
     DATA lv_url TYPE string.
     DATA lv_reason TYPE string.
@@ -132,7 +134,15 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
     DATA lv_error_code TYPE sysubrc.
 
     CLEAR: ev_status, ev_response.
-    CONCATENATE lc_portal iv_path INTO lv_url.
+    SELECT SINGLE low FROM tvarvc INTO lv_configured_portal
+      WHERE name = 'ZABAPILOT_TRIAL_PORTAL_URL'
+        AND type = 'P'.
+    IF sy-subrc = 0 AND lv_configured_portal IS NOT INITIAL.
+      lv_portal = lv_configured_portal.
+    ELSE.
+      lv_portal = lc_default_portal.
+    ENDIF.
+    CONCATENATE lv_portal iv_path INTO lv_url.
     CALL METHOD cl_http_client=>create_by_url
       EXPORTING
         url                = lv_url
