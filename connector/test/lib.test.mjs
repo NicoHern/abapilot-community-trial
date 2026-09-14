@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assertConfigured, authorize, configuration, TOOLS } from "../lib.mjs";
 
-test("trial exposes only the four bounded read-only tools", () => {
+test("trial exposes only the five bounded read-only tools", () => {
   assert.deepEqual(TOOLS.map((tool) => tool.name), [
-    "sap_ping", "sap_read_code", "sap_read_table_structure", "sap_read_table_data",
+    "sap_ping", "sap_read_code", "sap_read_table_structure", "sap_read_table_data", "sap_diagnose_error",
   ]);
   assert.equal(TOOLS.some((tool) => /write|create|update|delete|execute/.test(tool.name)), false);
 });

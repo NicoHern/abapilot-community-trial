@@ -47,6 +47,11 @@ CLASS zcl_abp_trial_http DEFINITION
         io_request  TYPE REF TO if_http_request
         io_response TYPE REF TO if_http_response.
 
+    METHODS handle_diagnose_error
+      IMPORTING
+        io_request  TYPE REF TO if_http_request
+        io_response TYPE REF TO if_http_response.
+
     METHODS check_table_auth
       IMPORTING
         iv_table_name TYPE tabname
@@ -88,12 +93,239 @@ CLASS zcl_abp_trial_http IMPLEMENTATION.
         handle_read_table_data(
           io_request  = server->request
           io_response = server->response ).
+      WHEN '/diagnose_error'.
+        handle_diagnose_error(
+          io_request  = server->request
+          io_response = server->response ).
       WHEN OTHERS.
         send_json(
           io_response = server->response
           iv_status   = 404
           iv_body     = '{"success":false,"error":"Unknown trial endpoint"}' ).
     ENDCASE.
+  ENDMETHOD.
+
+  METHOD handle_diagnose_error.
+    TYPES: BEGIN OF ty_message,
+             arbgb TYPE t100-arbgb,
+             msgnr TYPE t100-msgnr,
+             text  TYPE t100-text,
+           END OF ty_message.
+    TYPES tt_messages TYPE STANDARD TABLE OF ty_message WITH DEFAULT KEY.
+    TYPES tt_programs TYPE STANDARD TABLE OF progname WITH DEFAULT KEY.
+
+    DATA lv_json TYPE string.
+    DATA lv_message_id TYPE t100-arbgb.
+    DATA lv_message_number TYPE t100-msgnr.
+    DATA lv_message_text TYPE t100-text.
+    DATA lv_input_text TYPE string.
+    DATA lv_language TYPE sylangu.
+    DATA lv_program TYPE progname.
+    DATA lv_transaction TYPE tstc-tcode.
+    DATA lv_search_pattern TYPE string.
+    DATA lv_message_id_text TYPE string.
+    DATA lv_id_pattern TYPE string.
+    DATA lv_default_pattern TYPE string.
+    DATA lv_number_pattern TYPE string.
+    DATA lv_line TYPE ty_source_line.
+    DATA lv_upper_line TYPE string.
+    DATA lv_body TYPE string.
+    DATA lv_escaped TYPE string.
+    DATA lv_line_number TYPE i.
+    DATA lv_line_text TYPE string.
+    DATA lv_hit_count TYPE i.
+    DATA lv_candidate_count TYPE i.
+    DATA lv_programs_read TYPE i.
+    DATA lv_auth_skipped TYPE i.
+    DATA lv_programs_read_text TYPE string.
+    DATA lv_auth_skipped_text TYPE string.
+    DATA lv_first TYPE abap_bool.
+    DATA lv_default_message_id TYPE abap_bool.
+    DATA lv_scoped_program TYPE abap_bool.
+    DATA lt_messages TYPE tt_messages.
+    DATA ls_message TYPE ty_message.
+    DATA lt_programs TYPE tt_programs.
+    DATA lt_source TYPE tt_source.
+
+    lv_json = io_request->get_cdata( ).
+    lv_message_id = get_json_value( iv_json = lv_json iv_name = 'message_id' ).
+    lv_message_number = get_json_value( iv_json = lv_json iv_name = 'message_number' ).
+    lv_input_text = get_json_value( iv_json = lv_json iv_name = 'message_text' ).
+    lv_language = get_json_value( iv_json = lv_json iv_name = 'language' ).
+    lv_program = get_json_value( iv_json = lv_json iv_name = 'program_name' ).
+    lv_transaction = get_json_value( iv_json = lv_json iv_name = 'transaction' ).
+    TRANSLATE lv_message_id TO UPPER CASE.
+    TRANSLATE lv_program TO UPPER CASE.
+    TRANSLATE lv_transaction TO UPPER CASE.
+    IF lv_language IS INITIAL.
+      lv_language = sy-langu.
+    ENDIF.
+    TRANSLATE lv_language TO UPPER CASE.
+
+    IF lv_program IS INITIAL AND lv_transaction IS NOT INITIAL.
+      SELECT SINGLE pgmna FROM tstc INTO lv_program
+        WHERE tcode = lv_transaction.
+    ENDIF.
+
+    IF lv_message_id IS INITIAL OR lv_message_number IS INITIAL.
+      IF lv_input_text IS INITIAL.
+        send_json( io_response = io_response iv_status = 400
+          iv_body = '{"success":false,"error":"Provide message_id and message_number, or message_text"}' ).
+        RETURN.
+      ENDIF.
+      CONCATENATE '%' lv_input_text '%' INTO lv_search_pattern.
+      SELECT arbgb msgnr text FROM t100 INTO TABLE lt_messages
+        UP TO 5 ROWS
+        WHERE sprsl = lv_language
+          AND text LIKE lv_search_pattern.
+      READ TABLE lt_messages INTO ls_message INDEX 1.
+      IF sy-subrc <> 0.
+        send_json( io_response = io_response iv_status = 404
+          iv_body = '{"success":false,"error":"Message text not found in T100; provide message class and number"}' ).
+        RETURN.
+      ENDIF.
+      lv_message_id = ls_message-arbgb.
+      lv_message_number = ls_message-msgnr.
+      lv_message_text = ls_message-text.
+    ELSE.
+      SELECT SINGLE text FROM t100 INTO lv_message_text
+        WHERE sprsl = lv_language
+          AND arbgb = lv_message_id
+          AND msgnr = lv_message_number.
+      IF sy-subrc <> 0.
+        send_json( io_response = io_response iv_status = 404
+          iv_body = '{"success":false,"error":"Message class and number not found in T100"}' ).
+        RETURN.
+      ENDIF.
+      CLEAR lt_messages.
+      ls_message-arbgb = lv_message_id.
+      ls_message-msgnr = lv_message_number.
+      ls_message-text = lv_message_text.
+      APPEND ls_message TO lt_messages.
+    ENDIF.
+
+    IF lv_program IS NOT INITIAL.
+      IF lv_program CP 'Z*' OR lv_program CP 'Y*'.
+        lv_scoped_program = abap_true.
+        APPEND lv_program TO lt_programs.
+      ENDIF.
+    ELSE.
+      SELECT name FROM trdir INTO TABLE lt_programs
+        UP TO 300 ROWS
+        WHERE name LIKE 'Z%'
+           OR name LIKE 'Y%'.
+    ENDIF.
+
+    lv_message_id_text = lv_message_id.
+    CONDENSE lv_message_id_text NO-GAPS.
+    lv_number_pattern = lv_message_number.
+    CONDENSE lv_number_pattern NO-GAPS.
+
+    lv_escaped = lv_message_id_text.
+    lv_escaped = escape_json( lv_escaped ).
+    lv_body = '{"success":true,"message":{"id":"'.
+    CONCATENATE lv_body lv_escaped '","number":"' lv_message_number
+      '","text":"' INTO lv_body.
+    lv_escaped = lv_message_text.
+    lv_escaped = escape_json( lv_escaped ).
+    CONCATENATE lv_body lv_escaped '"},"t100_candidates":[' INTO lv_body.
+    lv_first = abap_true.
+    LOOP AT lt_messages INTO ls_message.
+      IF lv_first = abap_false.
+        CONCATENATE lv_body ',' INTO lv_body.
+      ENDIF.
+      lv_first = abap_false.
+      lv_candidate_count = lv_candidate_count + 1.
+      lv_escaped = ls_message-text.
+      lv_escaped = escape_json( lv_escaped ).
+      CONCATENATE lv_body '{"id":"' ls_message-arbgb
+        '","number":"' ls_message-msgnr '","text":"'
+        lv_escaped '"}' INTO lv_body.
+    ENDLOOP.
+    CONCATENATE lv_body '],"custom_code_hits":[' INTO lv_body.
+
+    CONCATENATE '(' lv_message_id_text ')' INTO lv_id_pattern.
+    CONCATENATE 'MESSAGE-ID ' lv_message_id_text INTO lv_default_pattern.
+    lv_first = abap_true.
+    LOOP AT lt_programs INTO lv_program.
+      AUTHORITY-CHECK OBJECT 'S_DEVELOP'
+        ID 'DEVCLASS' DUMMY
+        ID 'OBJTYPE' FIELD 'PROG'
+        ID 'OBJNAME' FIELD lv_program
+        ID 'P_GROUP' DUMMY
+        ID 'ACTVT' FIELD '03'.
+      IF sy-subrc <> 0.
+        lv_auth_skipped = lv_auth_skipped + 1.
+        CONTINUE.
+      ENDIF.
+
+      CLEAR lt_source.
+      READ REPORT lv_program INTO lt_source.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      lv_programs_read = lv_programs_read + 1.
+
+      lv_default_message_id = abap_false.
+      LOOP AT lt_source INTO lv_line.
+        lv_upper_line = lv_line.
+        TRANSLATE lv_upper_line TO UPPER CASE.
+        IF lv_upper_line CS lv_default_pattern.
+          lv_default_message_id = abap_true.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+
+      CLEAR lv_line_number.
+      LOOP AT lt_source INTO lv_line.
+        lv_line_number = lv_line_number + 1.
+        lv_upper_line = lv_line.
+        TRANSLATE lv_upper_line TO UPPER CASE.
+        IF lv_upper_line NS 'MESSAGE'.
+          CONTINUE.
+        ENDIF.
+        IF lv_upper_line NS lv_number_pattern.
+          CONTINUE.
+        ENDIF.
+        IF lv_upper_line NS lv_id_pattern
+           AND lv_default_message_id = abap_false
+           AND lv_scoped_program = abap_false.
+          CONTINUE.
+        ENDIF.
+
+        IF lv_first = abap_false.
+          CONCATENATE lv_body ',' INTO lv_body.
+        ENDIF.
+        lv_first = abap_false.
+        lv_hit_count = lv_hit_count + 1.
+        lv_line_text = lv_line_number.
+        CONDENSE lv_line_text NO-GAPS.
+        lv_escaped = lv_line.
+        lv_escaped = escape_json( lv_escaped ).
+        CONCATENATE lv_body '{"program":"' lv_program
+          '","line":' lv_line_text ',"source":"' lv_escaped
+          '","match_basis":"message number in explicitly scoped Z/Y program"}'
+          INTO lv_body.
+        IF lv_hit_count >= 5.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+      IF lv_hit_count >= 5.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    lv_programs_read_text = lv_programs_read.
+    lv_auth_skipped_text = lv_auth_skipped.
+    CONDENSE lv_programs_read_text NO-GAPS.
+    CONDENSE lv_auth_skipped_text NO-GAPS.
+    CONCATENATE lv_body '],"scope":{"read_only":true,'
+      '"source_exposure":"Z/Y only","max_hits":5,'
+      '"max_programs_scanned":300,"programs_read":' lv_programs_read_text
+      ',"authorization_skipped":' lv_auth_skipped_text
+      '},"guidance":"Use the resolved T100 message and custom-code locations to explain the triggering condition. Standard SAP source is not exposed by the trial."}'
+      INTO lv_body.
+    send_json( io_response = io_response iv_status = 200 iv_body = lv_body ).
   ENDMETHOD.
 
   METHOD handle_read_table_data.

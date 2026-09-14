@@ -1,4 +1,4 @@
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 export const TOOLS = [
   {
@@ -40,6 +40,23 @@ export const TOOLS = [
         max_rows: { type: "integer", minimum: 1, maximum: 20, default: 10 },
       },
       required: ["table_name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "sap_diagnose_error",
+    endpoint: "/diagnose_error",
+    description: "Resolve an SAP message through T100 and locate up to five matching statements in authorized custom Z or Y code. Standard SAP source is not exposed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "SAP message class, for example ZSD or ME" },
+        message_number: { type: "string", description: "Three-digit SAP message number" },
+        message_text: { type: "string", description: "Exact message text when class and number are unknown" },
+        transaction: { type: "string", description: "Optional transaction used to scope the custom-program search" },
+        program_name: { type: "string", description: "Optional Z or Y program/include used to scope the search" },
+        language: { type: "string", description: "One-character SAP language key; defaults to the SAP session language" },
+      },
       additionalProperties: false,
     },
   },

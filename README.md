@@ -5,7 +5,7 @@ SAP ECC or on-premise SAP S/4HANA before evaluating the full ABAPilot product.
 
 ## Scope
 
-The trial exposes four operations through one SICF handler:
+The trial exposes five operations through one SICF handler:
 
 | Path | Purpose | Boundary |
 | --- | --- | --- |
@@ -13,8 +13,11 @@ The trial exposes four operations through one SICF handler:
 | `/read_code` | Read active source for a custom report | `Z*` and `Y*` reports only; `S_DEVELOP` display check |
 | `/read_table_structure` | Read DDIC fields for a custom table or structure | `Z*` and `Y*` objects only; metadata only |
 | `/read_table_data` | Read a small sample from a custom table | `Z*` and `Y*` tables only; `S_TABU_DIS`; maximum 20 rows; no free-form filter |
+| `/diagnose_error` | Resolve an SAP message and find where custom code raises it | T100 lookup; `Z*` and `Y*` source only; maximum 300 programs scanned and five hits returned |
 
-It does not contain write, activation, execution, transport, business-data,
+The diagnostic endpoint provides a workflow that is not available as one operation in ADT: an AI assistant can start from a message class/number or exact message text, resolve the live T100 definition, and locate matching statements in authorized customer code. It never returns standard SAP source.
+
+It does not contain write, activation, execution, transport, unrestricted business-data,
 administration, licence, translation, monitoring, or production support tools.
 
 The downloadable repository also includes a capped MCP connector. It requires
