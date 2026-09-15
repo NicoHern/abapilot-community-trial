@@ -1,6 +1,6 @@
 {
   "name": "@abapilot/community-trial",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Portal-gated MCP trial for read-only ABAP evaluation on ECC and on-premise S/4HANA",
   "type": "module",
   "bin": {

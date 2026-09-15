@@ -1,4 +1,4 @@
-export const VERSION = "0.2.0";
+export const VERSION = "0.4.0";
 
 export const TOOLS = [
   {
@@ -15,6 +15,20 @@ export const TOOLS = [
       type: "object",
       properties: { object_name: { type: "string", description: "Z or Y report name" } },
       required: ["object_name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "sap_read_object",
+    endpoint: "/read_object",
+    description: "Read an authorized custom Z or Y report, include, class pool, function module, or function group.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        object_name: { type: "string", description: "Custom repository object name" },
+        object_type: { type: "string", enum: ["PROG", "INCL", "CLAS", "FUNC", "FUGR"] },
+      },
+      required: ["object_name", "object_type"],
       additionalProperties: false,
     },
   },
@@ -44,6 +58,24 @@ export const TOOLS = [
     },
   },
   {
+    name: "sap_query_custom_table",
+    endpoint: "/query_table",
+    description: "Query up to 50 rows from an authorized custom Z or Y table using an optional validated field filter and explicit field projection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table_name: { type: "string", description: "Z or Y database table" },
+        fields: { type: "string", description: "Optional comma-separated DDIC field names" },
+        filter_field: { type: "string", description: "Optional DDIC field name" },
+        filter_operator: { type: "string", enum: ["EQ", "NE", "GT", "GE", "LT", "LE", "LIKE"] },
+        filter_value: { type: "string", description: "Literal comparison value" },
+        max_rows: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
+      required: ["table_name"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "sap_diagnose_error",
     endpoint: "/diagnose_error",
     description: "Diagnose an SAP error from pasted text or text transcribed from a screenshot. Rank matching T100 messages while ignoring runtime values, then search up to 5,000 authorized programs in each Z and Y namespace and return at most five calls. If the user supplies an image, read the visible error text first and pass it as screenshot_text. Standard SAP source is not exposed.",
@@ -60,6 +92,63 @@ export const TOOLS = [
       },
       additionalProperties: false,
     },
+  },
+  {
+    name: "sap_analyze_change",
+    endpoint: "/analyze_change",
+    description: "Inspect one custom Z or Y repository object and return bounded source, include relationships, and change-planning evidence without modifying SAP.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        object_name: { type: "string" },
+        object_type: { type: "string", enum: ["PROG", "INCL", "CLAS", "FUNC", "FUGR"] },
+      },
+      required: ["object_name", "object_type"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "sap_syntax_check",
+    endpoint: "/syntax_check",
+    description: "Syntax-check candidate ABAP source in memory without saving it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        source: { type: "string", description: "Complete ABAP source text" },
+        program_name: { type: "string", description: "Optional Z or Y context name" },
+      },
+      required: ["source"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "sap_trial_lab_status",
+    endpoint: "/lab_status",
+    description: "Read the fixed ABAPilot trial laboratory report and its safety boundary.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "sap_trial_lab_apply",
+    endpoint: "/lab_apply",
+    description: "Replace only the body of the fixed ZABP_TRIAL_LAB report, activate it after a syntax check, and preserve a resettable baseline. Sandbox use only.",
+    inputSchema: {
+      type: "object",
+      properties: { source: { type: "string", description: "Complete source for ZABP_TRIAL_LAB" } },
+      required: ["source"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "sap_trial_lab_reset",
+    endpoint: "/lab_reset",
+    description: "Restore the fixed ZABP_TRIAL_LAB report to the shipped baseline.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "sap_trial_lab_test",
+    endpoint: "/lab_test",
+    description: "Run fixed functional checks against ZABP_TRIAL_LAB and return pass/fail evidence.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
 ];
 
@@ -114,7 +203,6 @@ function sapUrl(cfg, endpoint) {
 }
 
 export async function callSap(cfg, tool, args = {}) {
-  await authorize(cfg);
   const payload = { ...args };
   if (typeof payload.object_name === "string") payload.object_name = payload.object_name.toUpperCase();
   if (typeof payload.table_name === "string") payload.table_name = payload.table_name.toUpperCase();

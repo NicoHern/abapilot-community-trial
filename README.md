@@ -1,62 +1,44 @@
 # ABAPilot Community Trial
 
-A small, read-only ABAP backend that lets an MCP client verify connectivity to
-SAP ECC or on-premise SAP S/4HANA before evaluating the full ABAPilot product.
+A time-boxed evaluation of AI-assisted ABAP work on your own SAP ECC or on-premise S/4HANA sandbox. The trial is designed to answer three buying questions with real evidence:
 
-## Scope
+1. Can your network and security model support ABAPilot?
+2. Can an MCP assistant understand your authorized custom ABAP and diagnose a real SAP error?
+3. Can it complete a small syntax-check, change, activation, and test loop inside a tightly isolated Z report?
 
-The trial exposes five operations through one SICF handler:
+The full product has a much broader tool catalog. This package deliberately keeps repository and data access bounded and limits persistent changes to one resettable laboratory report.
 
-| Path | Purpose | Boundary |
+## Evaluation workflow
+
+The connector exposes 13 tools:
+
+| Capability | MCP tools | Boundary |
 | --- | --- | --- |
-| `/ping` | Verify the SAP connection and user | No repository or business data |
-| `/read_code` | Read active source for a custom report | `Z*` and `Y*` reports only; `S_DEVELOP` display check |
-| `/read_table_structure` | Read DDIC fields for a custom table or structure | `Z*` and `Y*` objects only; metadata only |
-| `/read_table_data` | Read a small sample from a custom table | `Z*` and `Y*` tables only; `S_TABU_DIS`; maximum 20 rows; no free-form filter |
-| `/diagnose_error` | Diagnose pasted error text or text read from a screenshot, rank matching T100 messages, and find where custom code raises them | Runtime values are ignored during matching; `Z*` and `Y*` source only; up to 5,000 programs per namespace are scanned in deterministic name order and five hits returned |
+| Connectivity | `sap_ping` | Identifies the connected SAP system and user |
+| Repository reading | `sap_read_code`, `sap_read_object` | Authorized `Z*`/`Y*` reports, includes, classes, function modules and function groups; maximum 2,000 source lines per call |
+| DDIC inspection | `sap_read_table_structure` | `Z*`/`Y*` tables and structures |
+| Bounded custom data | `sap_read_table_data`, `sap_query_custom_table` | `Z*`/`Y*` tables, `S_TABU_DIS`, maximum 20 or 50 rows; projected fields and one validated filter only |
+| Error diagnosis | `sap_diagnose_error` | Resolves pasted or screenshot-transcribed text through T100 and finds matching calls in authorized custom code; standard SAP source is never returned |
+| Change planning | `sap_analyze_change` | Reads bounded active source and direct include relationships without modifying SAP |
+| In-memory validation | `sap_syntax_check` | Syntax-checks candidate ABAP without saving it |
+| Isolated change loop | `sap_trial_lab_status`, `sap_trial_lab_apply`, `sap_trial_lab_test`, `sap_trial_lab_reset` | May change only `ZABP_TRIAL_LAB`; blocks database writes, transactions, files, function/method calls and object creation; always resettable |
 
-The diagnostic endpoint provides a workflow that is not available as one operation in ADT: an AI assistant can start from a message class/number or exact message text, resolve the live T100 definition, and locate matching statements in authorized customer code. It never returns standard SAP source.
-
-It does not contain write, activation, execution, transport, unrestricted business-data,
-administration, licence, translation, monitoring, or production support tools.
-
-The downloadable repository also includes a capped MCP connector. It requires
-an active ABAPilot Portal account and an individual Portal key. Downloading or
-installing the ABAP objects alone does not enable MCP access.
+The laboratory is a product-evaluation mechanism, not a general write API. It demonstrates the interaction model while preventing changes to customer business programs.
 
 ## Install with abapGit
 
 1. Install or run `ZABAPGIT_STANDALONE` in a development or sandbox system.
-2. Create an online repository pointing to this repository URL.
-3. Select package `ZABAPILOT_TRIAL` and pull.
-4. Create an SICF node such as `/sap/bc/zabapilot_trial` with handler class
-   `ZCL_ABP_TRIAL_HTTP`.
-5. In `STVARV`, create parameter `ZABAPILOT_TRIAL_PORTAL_URL` only when SAP
-   must use an approved proxy instead of the default HTTPS Portal URL.
-6. Activate the node and require HTTPS and SAP authentication.
-7. Test `GET /sap/bc/zabapilot_trial/ping` before configuring an MCP client.
+2. Pull `https://github.com/NicoHern/abapilot-community-trial` into package `ZABAPILOT_TRIAL`.
+3. Create an SICF node such as `/sap/bc/zabapilot_trial` with handler class `ZCL_ABP_TRIAL_HTTP`.
+4. Activate the node and require SAP authentication. Use HTTPS whenever the SAP landscape supports it.
+5. Allow outbound HTTPS from SAP to the ABAPilot Portal and import the Portal certificate chain in `STRUST`.
+6. In `STVARV`, set `ZABAPILOT_TRIAL_PORTAL_URL` only when SAP must use an approved proxy or custom Portal hostname.
 
-## Portal-gated MCP connector
+## Configure the MCP connector
 
-Ask Crimson Consulting to add each evaluator as an ABAPilot Portal user and
-issue an individual Community Trial key. The Portal account represents the
-evaluator in ABAPilot; it is not a SAP account. A standard Community Trial is
-enabled for 30 days and receives a finite call allowance in the Portal. The connector validates that key
-and checks the server-side allowance before every
-SAP call. It never sends SAP response data to the Portal.
+Crimson Consulting creates an individual Portal user and Community Trial key for each evaluator. That key authenticates the trial entitlement; it does not replace the evaluator's SAP user.
 
-The evaluating company supplies a separate SAP URL, client, user and password
-for its own system. Those credentials remain under the company's SAP security
-and authorization model. ABAPilot does not provision or replace that SAP user.
-
-The SAP handler independently requires the same Portal key, validates it with
-the hosted Portal, and records one usage event before dispatching a request.
-This prevents direct SICF calls from bypassing the official connector. Portal
-access from SAP must be allowed through the customer's outbound HTTPS policy,
-and the Portal certificate chain must be trusted in `STRUST`. The trial fails
-closed if validation or usage recording cannot be completed.
-
-Configure an MCP client to run `npx @abapilot/community-trial` with:
+The customer supplies the SAP URL, client, user and password for its own sandbox. SAP continues to enforce `S_DEVELOP`, `S_TABU_DIS` and SICF access.
 
 ```json
 {
@@ -70,71 +52,37 @@ Configure an MCP client to run `npx @abapilot/community-trial` with:
 }
 ```
 
-To generate a configuration template without writing either secret to disk:
+Generate a configuration template without writing real secrets:
 
 ```shell
 npx -y -p @abapilot/community-trial abapilot-trial-configure
 ```
 
-The generated file contains placeholders for the Portal key and SAP password;
-store their real values using the MCP client's secret mechanism.
+`ABAPILOT_PORTAL_URL` is optional. A tool call goes to the customer SAP endpoint once. The SAP handler then validates and consumes one trial allowance through the Portal before dispatch. Source, request payloads and table rows are never sent to the Portal. Version 0.4 uses one atomic Portal call when the deployed Portal supports it and falls back to the older validation path during rollout.
 
-`ABAPILOT_PORTAL_URL` is optional and defaults to the hosted ABAPilot Portal.
-The connector refuses calls when the
-key is missing, inactive, expired, assigned no finite trial allowance, or has
-reached its allowance. Portal authentication does not replace SAP
-authentication: SAP still enforces the dedicated user's own authorizations.
+## Recommended buying-decision test
 
-## Identity and expiry model
+Use a sandbox and budget 60 to 90 minutes:
 
-1. Crimson creates or approves the evaluator's ABAPilot Portal user.
-2. The evaluator receives an individual trial key with a 30-day expiry and a
-   finite allowance.
-3. The evaluator installs the Z objects in its own sandbox through abapGit.
-4. The evaluator configures its own SAP endpoint and SAP credentials locally.
-5. The connector and SAP handler validate the Portal trial before each call.
-6. After expiry or exhaustion, Portal validation fails closed; no automatic
-   deletion of customer-owned SAP objects is attempted.
-
-## Requests
-
-`GET /ping`
-
-`POST /read_code`
-
-```json
-{"object_name":"ZMY_REPORT"}
-```
-
-`POST /read_table_structure`
-
-```json
-{"table_name":"ZMY_TABLE"}
-```
-
-`POST /read_table_data`
-
-```json
-{"table_name":"ZMY_TABLE","max_rows":"10"}
-```
+1. Run `sap_ping` to prove the identity and network path.
+2. Read one representative Z class or function group with `sap_read_object`.
+3. Diagnose an error your developer already understands using `sap_diagnose_error`; compare the returned T100 identity and custom-code locations with the known answer.
+4. Ask the assistant to inspect `ZABP_TRIAL_LAB`, propose a small discount-rule change, syntax-check it, apply it and run the fixed functional tests.
+5. Reset the lab and verify its baseline.
+6. If the workflow is useful, request a time-boxed paid-product PoC against a real sandbox change including the broader ATC, ABAP Unit, transport and activation capabilities.
 
 ## Security boundaries
 
-- Install only in a development or sandbox system.
-- Use HTTPS and a dedicated SAP user.
-- The trial rejects non-`Z*`/`Y*` repository and DDIC names.
-- Code reading checks `S_DEVELOP` with activity `03`.
-- Table-data reading checks `S_TABU_DIS` with activity `03`; tables without a
-  maintained authorization group use the standard `&NC&` group.
-- Table reads return at most 20 rows and do not accept a free-form WHERE clause.
-- No write or business-data endpoint exists in this package.
-- Portal telemetry contains an accepted trial-request event only, never ABAP
-  source, request parameters, or table rows.
-- SICF access, SAP authorizations, network exposure, and AI-provider data
-  handling remain the evaluator's responsibility.
+- Install only in a development or sandbox SAP system.
+- Repository and DDIC reads accept only `Z*` and `Y*` names.
+- Source reading requires `S_DEVELOP` activity `03`.
+- Custom table reads require `S_TABU_DIS` activity `03`; missing authorization groups use `&NC&`.
+- Table filters are assembled only after the field and operator are validated against DDIC metadata. Free-form SQL is not accepted.
+- Persistent changes require `S_DEVELOP` activity `02` and are restricted to `ZABP_TRIAL_LAB`.
+- The lab rejects business-data writes, transactions, dynamic execution, files, function modules, method calls and object creation.
+- Trial expiry disables access through Portal validation. Customer-owned SAP objects are not deleted automatically.
+- Portal telemetry records an accepted endpoint counter and never records ABAP source or table contents.
 
 ## Compatibility validation
 
-The release process validates source first on REM, the ECC compatibility
-baseline, and then on S1H. A successful sandbox check is not a guarantee for
-every SAP release or customer configuration.
+Every release is activated and exercised first on REM, the ECC compatibility baseline, and then checked on S1H. SAP release level, installed components and customer authorization design can still affect individual systems.

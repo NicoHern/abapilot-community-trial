@@ -35,6 +35,8 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
     DATA lv_status_text TYPE c LENGTH 12.
     DATA lv_response TYPE string.
     DATA lv_usage_body TYPE string.
+    DATA lv_request_body TYPE string.
+    DATA lv_endpoint TYPE string.
     DATA lv_used TYPE i.
     DATA lv_limit TYPE i.
 
@@ -44,14 +46,34 @@ CLASS zcl_abp_trial_license IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    lv_endpoint = io_request->get_header_field( name = '~path_info' ).
+    REPLACE ALL OCCURRENCES OF '"' IN lv_endpoint WITH ''.
+    CONCATENATE '{"server_version":"0.4.0",'
+      '"hostname":"sap-community-trial",'
+      '"feature":"community_trial","sap_endpoint":"'
+      lv_endpoint '","channel":"sap"}' INTO lv_request_body.
+
     portal_post(
       EXPORTING
-        iv_path        = '/api/v1/mcp/license/validate'
+        iv_path        = '/api/v1/mcp/license/consume'
         iv_license_key = lv_key
-        iv_body        = '{"server_version":"0.1.0","hostname":"sap-community-trial"}'
+        iv_body        = lv_request_body
       IMPORTING
         ev_status      = lv_status
         ev_response    = lv_response ).
+
+    IF lv_status = 404.
+      portal_post(
+        EXPORTING
+          iv_path        = '/api/v1/mcp/license/validate'
+          iv_license_key = lv_key
+          iv_body        = '{"server_version":"0.4.0","hostname":"sap-community-trial"}'
+        IMPORTING
+          ev_status      = lv_status
+          ev_response    = lv_response ).
+    ELSEIF lv_status = 200 AND lv_response CS '"valid":true'.
+      RETURN.
+    ENDIF.
 
     IF lv_status <> 200 OR lv_response NS '"valid":true'.
       WRITE lv_status TO lv_status_text.
