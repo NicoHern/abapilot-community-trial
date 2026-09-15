@@ -1,6 +1,6 @@
 {
   "name": "@abapilot/community-trial",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Portal-gated MCP trial for read-only ABAP evaluation on ECC and on-premise S/4HANA",
   "type": "module",
   "bin": {
@@ -8,15 +8,30 @@
     "abapilot-trial-configure": "dist/configure.mjs"
   },
   "main": "dist/index.js",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"
   },
-  "keywords": ["mcp", "sap", "abap", "ecc", "s4hana", "trial"],
+  "keywords": [
+    "mcp",
+    "sap",
+    "abap",
+    "ecc",
+    "s4hana",
+    "trial"
+  ],
   "author": "Crimson Consulting SL",
   "license": "MIT",
-  "engines": { "node": ">=18" },
-  "dependencies": { "@modelcontextprotocol/sdk": "^1.0.0" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
 }

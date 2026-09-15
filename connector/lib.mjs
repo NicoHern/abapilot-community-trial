@@ -46,13 +46,14 @@ export const TOOLS = [
   {
     name: "sap_diagnose_error",
     endpoint: "/diagnose_error",
-    description: "Resolve an SAP message through T100 and locate up to five matching statements in authorized custom Z or Y code. Standard SAP source is not exposed.",
+    description: "Diagnose an SAP error from pasted text or text transcribed from a screenshot. Rank matching T100 messages while ignoring runtime values, then search up to 5,000 authorized programs in each Z and Y namespace and return at most five calls. If the user supplies an image, read the visible error text first and pass it as screenshot_text. Standard SAP source is not exposed.",
     inputSchema: {
       type: "object",
       properties: {
         message_id: { type: "string", description: "SAP message class, for example ZSD or ME" },
         message_number: { type: "string", description: "Three-digit SAP message number" },
-        message_text: { type: "string", description: "Exact message text when class and number are unknown" },
+        message_text: { type: "string", description: "Error text copied from SAP; runtime values may differ from the T100 template" },
+        screenshot_text: { type: "string", description: "Visible error text transcribed by the multimodal AI client from a supplied screenshot" },
         transaction: { type: "string", description: "Optional transaction used to scope the custom-program search" },
         program_name: { type: "string", description: "Optional Z or Y program/include used to scope the search" },
         language: { type: "string", description: "One-character SAP language key; defaults to the SAP session language" },

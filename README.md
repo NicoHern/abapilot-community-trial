@@ -13,7 +13,7 @@ The trial exposes five operations through one SICF handler:
 | `/read_code` | Read active source for a custom report | `Z*` and `Y*` reports only; `S_DEVELOP` display check |
 | `/read_table_structure` | Read DDIC fields for a custom table or structure | `Z*` and `Y*` objects only; metadata only |
 | `/read_table_data` | Read a small sample from a custom table | `Z*` and `Y*` tables only; `S_TABU_DIS`; maximum 20 rows; no free-form filter |
-| `/diagnose_error` | Resolve an SAP message and find where custom code raises it | T100 lookup; `Z*` and `Y*` source only; maximum 300 programs scanned and five hits returned |
+| `/diagnose_error` | Diagnose pasted error text or text read from a screenshot, rank matching T100 messages, and find where custom code raises them | Runtime values are ignored during matching; `Z*` and `Y*` source only; up to 5,000 programs per namespace are scanned in deterministic name order and five hits returned |
 
 The diagnostic endpoint provides a workflow that is not available as one operation in ADT: an AI assistant can start from a message class/number or exact message text, resolve the live T100 definition, and locate matching statements in authorized customer code. It never returns standard SAP source.
 

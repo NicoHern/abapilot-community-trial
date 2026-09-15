@@ -9,6 +9,13 @@ test("trial exposes only the five bounded read-only tools", () => {
   assert.equal(TOOLS.some((tool) => /write|create|update|delete|execute/.test(tool.name)), false);
 });
 
+test("error diagnosis accepts text transcribed from a screenshot", () => {
+  const tool = TOOLS.find((item) => item.name === "sap_diagnose_error");
+  assert.ok(tool.inputSchema.properties.message_text);
+  assert.ok(tool.inputSchema.properties.screenshot_text);
+  assert.match(tool.description, /screenshot/i);
+});
+
 test("portal key and SAP credentials are mandatory", () => {
   const cfg = configuration({ ABAPILOT_PORTAL_URL: "https://portal.example" });
   assert.throws(() => assertConfigured(cfg), /ABAPILOT_LICENSE_KEY/);
