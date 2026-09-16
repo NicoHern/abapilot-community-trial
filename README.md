@@ -30,7 +30,7 @@ The laboratory is a product-evaluation mechanism, not a general write API. It de
 1. Install or run `ZABAPGIT_STANDALONE` in a development or sandbox system.
 2. Pull `https://github.com/NicoHern/abapilot-community-trial` into package `ZABAPILOT_TRIAL`.
 3. Create an SICF node such as `/sap/bc/zabapilot_trial` with handler class `ZCL_ABP_TRIAL_HTTP`.
-4. Activate the node and require SAP authentication. Use HTTPS whenever the SAP landscape supports it.
+4. Activate the node and require SAP authentication. Use HTTPS for every shared or remotely accessible environment. The connector refuses plain HTTP by default because it sends SAP Basic credentials on each call.
 5. Allow outbound HTTPS from SAP to the ABAPilot Portal and import the Portal certificate chain in `STRUST`.
 6. In `STVARV`, set `ZABAPILOT_TRIAL_PORTAL_URL` only when SAP must use an approved proxy or custom Portal hostname.
 
@@ -51,6 +51,8 @@ The customer supplies the SAP URL, client, user and password for its own sandbox
   }
 }
 ```
+
+For an isolated sandbox that is reachable only through a trusted private network and cannot expose HTTPS, set `ABAPILOT_ALLOW_INSECURE_HTTP=true` explicitly. This exception sends SAP credentials without transport encryption and must not be used across the public internet, a shared network or production.
 
 Generate a configuration template without writing real secrets:
 
@@ -79,7 +81,8 @@ Use a sandbox and budget 60 to 90 minutes:
 - Custom table reads require `S_TABU_DIS` activity `03`; missing authorization groups use `&NC&`.
 - Table filters are assembled only after the field and operator are validated against DDIC metadata. Free-form SQL is not accepted.
 - Persistent changes require `S_DEVELOP` activity `02` and are restricted to `ZABP_TRIAL_LAB`.
-- The lab rejects business-data writes, transactions, dynamic execution, files, function modules, method calls and object creation.
+- The trial is read-only for customer repository objects and business data. Its laboratory can save, activate and execute only the fixed `ZABP_TRIAL_LAB` report.
+- The lab rejects business-data writes, transactions, dynamic execution, files, function modules, method calls, object creation and all `DO`/`WHILE` loops.
 - Trial expiry disables access through Portal validation. Customer-owned SAP objects are not deleted automatically.
 - Portal telemetry records an accepted endpoint counter and never records ABAP source or table contents.
 

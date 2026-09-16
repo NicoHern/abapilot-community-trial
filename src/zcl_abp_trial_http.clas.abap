@@ -997,6 +997,7 @@ CLASS zcl_abp_trial_http IMPLEMENTATION.
        OR lv_upper CS 'CREATE ' OR lv_upper CS 'SYSTEM-CALL'
        OR lv_upper CS '->' OR lv_upper CS '=>'
        OR lv_upper CS 'WHILE ' OR lv_upper CS 'DO.'
+       OR lv_upper CS 'DO ' OR lv_upper CS ' TIMES'
        OR lv_upper CS 'LOOP AT' OR lv_upper CS 'WAIT '.
       send_json( io_response = io_response iv_status = 403
         iv_body = '{"success":false,"error":"The lab accepts bounded calculation logic only; external calls, repository or data access, files, messages, dynamic execution, and unbounded loops are blocked"}' ).

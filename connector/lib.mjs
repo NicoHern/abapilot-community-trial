@@ -1,4 +1,4 @@
-export const VERSION = "0.4.0";
+export const VERSION = "0.4.1";
 
 export const TOOLS = [
   {
@@ -160,6 +160,7 @@ export function configuration(env = process.env) {
     sapClient: env.ABAPILOT_TRIAL_SAP_CLIENT ?? "",
     portalUrl: (env.ABAPILOT_PORTAL_URL ?? "https://abapilot-portal.kindwater-835c4d5f.westeurope.azurecontainerapps.io").replace(/\/+$/, ""),
     portalKey: env.ABAPILOT_LICENSE_KEY ?? env.ABAPILOT_PORTAL_KEY ?? "",
+    allowInsecureHttp: env.ABAPILOT_ALLOW_INSECURE_HTTP === "true",
   };
 }
 
@@ -169,6 +170,10 @@ export function assertConfigured(cfg) {
   if (!cfg.sapUrl) missing.push("ABAPILOT_TRIAL_URL");
   if (!cfg.sapUser || !cfg.sapPassword) missing.push("ABAPILOT_TRIAL_SAP_USER/ABAPILOT_TRIAL_SAP_PASSWORD");
   if (missing.length) throw new Error(`ABAPilot Community Trial is not configured: ${missing.join(", ")}`);
+  const protocol = new URL(cfg.sapUrl).protocol;
+  if (protocol !== "https:" && !(protocol === "http:" && cfg.allowInsecureHttp)) {
+    throw new Error("ABAPILOT_TRIAL_URL must use HTTPS. For an isolated private sandbox only, explicitly set ABAPILOT_ALLOW_INSECURE_HTTP=true.");
+  }
 }
 
 async function portalRequest(cfg, path, init = {}) {

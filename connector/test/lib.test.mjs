@@ -42,6 +42,20 @@ test("portal URL is normalized", () => {
   assert.equal(cfg.portalUrl, "https://portal.example");
 });
 
+test("SAP Basic credentials require HTTPS by default", () => {
+  const base = {
+    ABAPILOT_LICENSE_KEY: "abp_test_key",
+    ABAPILOT_TRIAL_URL: "http://10.0.48.10:8000/sap/bc/zabapilot_trial",
+    ABAPILOT_TRIAL_SAP_USER: "TRIAL",
+    ABAPILOT_TRIAL_SAP_PASSWORD: "secret",
+  };
+  assert.throws(() => assertConfigured(configuration(base)), /must use HTTPS/);
+  assert.doesNotThrow(() => assertConfigured(configuration({
+    ...base,
+    ABAPILOT_ALLOW_INSECURE_HTTP: "true",
+  })));
+});
+
 test("authorization requires a finite Portal allowance", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
